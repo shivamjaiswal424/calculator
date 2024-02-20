@@ -1,43 +1,58 @@
-<dependencies>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter</artifactId>
-		</dependency>
-
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.junit.jupiter</groupId>
-			<artifactId>junit-jupiter</artifactId>
-			<version>5.10.1</version>
-			<scope>test</scope>
-		</dependency>
-	</dependencies>
-
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.11.0</version>
-				<configuration>
-					<source>17</source>
-					<target>17</target>
-				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-surefire-plugin</artifactId>
-				<version>3.1.2</version> <!-- Replace with the latest version -->
-			</plugin>
-		</plugins>
-
-		<finalName>calculator</finalName>
-	</build>
+pipeline {
+    agent any
+    tools{
+        maven "maven"
+    }
+    stages{
+        stage('Build Maven'){
+            steps{
+                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/shivamjaiswal424/calculator.git']])
+                sh 'mvn clean install'
+            }
+        }
+        stage('Run Tests') {
+            steps {
+                script {
+                    sh 'mvn test'
+                }
+            }
+        }
+        stage('Build docker image'){
+            steps{
+                script{
+                    sh 'docker build -t shivam424/calculator .'
+                }
+            }
+        }
+        stage('push image to docker'){
+            steps{
+                script{
+                    withCredentials([string(credentialsId: 'dockerhub', variable: 'shivam')]) {
+                    sh 'docker login -u shivam424 -p ${shivam}'
+                    }
+                    sh 'docker push shivam424/calculator'
+                }
+            }
+        }
+        stage('Remove existing container') {
+            steps {
+                script {
+                    // Stop and remove the existing container named "calc"
+                    sh 'docker stop calculator || true'
+                    sh 'docker rm calculator || true'
+                }
+            }
+        }
+        stage('Run Ansible Playbook') {
+            steps {
+                script {
+                    ansiblePlaybook(
+                        playbook: 'deploy.yml',
+                        inventory: 'inventory'
+                     )
+                }
+            }
+        }
+        
+    }
+}
