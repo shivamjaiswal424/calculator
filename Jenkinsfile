@@ -27,9 +27,7 @@ pipeline {
         stage('push image to docker'){
             steps{
                 script{
-                    withCredentials([string(credentialsId: 'dockerhub', variable: 'shivam')]) {
-                    sh 'docker login -u shivam424 -p ${shivam}'
-                    }
+                    sh 'docker login -u shivam424 -p 6291818487'
                     sh 'docker push shivam424/calculator'
                 }
             }
